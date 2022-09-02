@@ -1,5 +1,6 @@
 const { getWeth, AMOUNT } = require("../scripts/getWeth")
 const { getNamedAccounts, ethers } = require("hardhat")
+const { networkConfig } = require("../helper-hardhat-config")
 
 async function main() {
     await getWeth()
@@ -7,20 +8,45 @@ async function main() {
     const lendingPool = await getLendingPool(deployer)
     console.log(`LengingPool address ${lendingPool.address}`)
 
-    //deposit
-    const wethTokenAddress = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
-    //approve
+    //Deposit
+    const wethTokenAddress = networkConfig[network.config.chainId].wethToken
+    //Approve
     await approveERC20(wethTokenAddress, lendingPool.address, AMOUNT, deployer)
     console.log("Depositing...")
     await lendingPool.deposit(wethTokenAddress, AMOUNT, deployer, 0)
     console.log("Deposited...")
+    let { availableBorrowsETH, totalDebtETH } = await getBorrowUserData(lendingPool, deployer)
+    getDaiPrice()
+    //Borrow
+}
+
+async function getDaiPrice() {
+    const daiEthPriceFeed = await ethers.getContractAt(
+        "AggregatorV3Interface",
+        networkConfig[network.config.chainId].daiEthPriceFeed
+    )
+    const price = (await daiEthPriceFeed.latestRoundData())[1]
+    console.log(`The DAI/ETH price is ${price.toString()}`)
+    return price
+}
+
+async function getBorrowUserData(lendingPool, account) {
+    const {
+        totalCollateralETH,
+        totalDebtETH,
+        availableBorrowsETH
+    } = await lendingPool.getUserAccountData(account)
+    console.log(`You have ${totalCollateralETH} worth of ETH deposited.`)
+    console.log(`You have ${totalDebtETH} worth of ETH borrowed.`)
+    console.log(`You can borrow ${availableBorrowsETH} worth of ETH.`)
+    return { availableBorrowsETH, totalDebtETH }
 }
 
 async function getLendingPool(account) {
     const { deployer } = await getNamedAccounts()
     const lendingPoolAddressProvider = await ethers.getContractAt(
         "ILendingPoolAddressesProvider",
-        "0xB53C1a33016B2DC2fF3653530bfF1848a515c8c5",
+        networkConfig[network.config.chainId].lendingPoolAddressesProvider,
         account
     )
     const lendingPoolAddress = await lendingPoolAddressProvider.getLendingPool()
