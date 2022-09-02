@@ -22,7 +22,15 @@ async function main() {
     const daiTokenAddress = networkConfig[network.config.chainId].daiToken
     await borrowDai(daiTokenAddress, lendingPool, amountDaiToBorrowWei, deployer)
     await getBorrowUserData(lendingPool, deployer)
-    //Borrow
+    await repay(amountDaiToBorrowWei, daiTokenAddress, lendingPool, deployer)
+    await getBorrowUserData(lendingPool, deployer)
+}
+
+async function repay(amount, daiAddress, lendingPool, account) {
+    await approveERC20(daiAddress, lendingPool.address, amount, account)
+    const repayTx = await lendingPool.repay(daiAddress, amount, 1, account)
+    await repayTx.wait(1)
+    console.log("Repaid")
 }
 
 async function borrowDai(daiAddress, lendingPool, amountDaiToBorrow, account) {
@@ -54,7 +62,6 @@ async function getBorrowUserData(lendingPool, account) {
 }
 
 async function getLendingPool(account) {
-    const { deployer } = await getNamedAccounts()
     const lendingPoolAddressProvider = await ethers.getContractAt(
         "ILendingPoolAddressesProvider",
         networkConfig[network.config.chainId].lendingPoolAddressesProvider,
