@@ -16,8 +16,19 @@ async function main() {
     await lendingPool.deposit(wethTokenAddress, AMOUNT, deployer, 0)
     console.log("Deposited...")
     let { availableBorrowsETH, totalDebtETH } = await getBorrowUserData(lendingPool, deployer)
-    getDaiPrice()
+    const daiPrice = await getDaiPrice()
+    const amountDaiToBorrow = availableBorrowsETH.toString() * 0.95 * (1 / daiPrice.toNumber())
+    const amountDaiToBorrowWei = ethers.utils.parseEther(amountDaiToBorrow.toString())
+    const daiTokenAddress = networkConfig[network.config.chainId].daiToken
+    await borrowDai(daiTokenAddress, lendingPool, amountDaiToBorrowWei, deployer)
+    await getBorrowUserData(lendingPool, deployer)
     //Borrow
+}
+
+async function borrowDai(daiAddress, lendingPool, amountDaiToBorrow, account) {
+    const borrowTx = await lendingPool.borrow(daiAddress, amountDaiToBorrow, 1, 0, account)
+    await borrowTx.wait(1)
+    console.log("You have borrowed")
 }
 
 async function getDaiPrice() {
